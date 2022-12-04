@@ -1,4 +1,5 @@
-import { caloriesInBag } from "./calorie-counter.js";
+import { countCalories } from "./calorie-counter.js";
+import { insertRanking } from "./ranking.js";
 import { getLineReader } from "./reader.js";
 
 const args = process.argv.slice(2);
@@ -8,36 +9,65 @@ const lineReader = getLineReader({
   filePath,
 });
 
-let currenElf = 1;
-let maxCalories = 0;
+let currentElf = 1;
+let largestBagPacks = [0, 0, 0];
 const bagPacks = new Map<number, number[]>();
 
+const checkCurrentBag = ({
+  currentBag,
+  elf,
+}: {
+  currentBag?: number[];
+  elf: number;
+}) => {
+  const totalCalories = countCalories({
+    items: currentBag || [],
+  });
+  console.log(
+    `Elf ${elf} has the following bag ${JSON.stringify(
+      currentBag
+    )} totalling ${totalCalories} calories`
+  );
+
+  largestBagPacks = insertRanking({
+    rankings: largestBagPacks,
+    newRank: totalCalories,
+  });
+};
+
 lineReader.on("line", (line) => {
-  const currentBag = bagPacks.get(currenElf);
+  const currentBag = bagPacks.get(currentElf);
 
   if (!line.length) {
-    const totalCalories = caloriesInBag({
-      items: currentBag || [],
+    checkCurrentBag({
+      currentBag,
+      elf: currentElf,
     });
-    console.log(
-      `Elf ${currenElf} has the following bag ${JSON.stringify(
-        currentBag
-      )} totalling ${totalCalories} calories`
-    );
 
-    if (totalCalories > maxCalories) {
-      maxCalories = totalCalories;
-    }
-
-    return (currenElf += 1);
+    return (currentElf += 1);
   }
 
   bagPacks.set(
-    currenElf,
+    currentElf,
     currentBag ? [...currentBag, Number(line)] : [Number(line)]
   );
 });
 
 lineReader.on("close", () => {
+  // check the last bag
+  const currentBag = bagPacks.get(currentElf);
+  checkCurrentBag({
+    currentBag,
+    elf: currentElf,
+  });
+
+  const maxCalories = largestBagPacks[0];
+  const totalCalories = countCalories({
+    items: largestBagPacks,
+  });
   console.log(`Max calories is ${maxCalories}`);
+  console.log(`Total calories is ${totalCalories}`);
+  console.log(
+    `The largest backpacks are as follows ${JSON.stringify(largestBagPacks)}`
+  );
 });
